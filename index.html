@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>scrape.ai</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>🌐 scrape.ai</header>
+    <p>Extract data from websites using CSS selectors</p>
+
+    <button id="darkToggle" class="dark-btn">🌙 Dark Mode</button>
+
+    <!-- MAIN CONTENT WRAPPER -->
+    <div class="main-wrapper">
+
+        <!-- LEFT CARD -->
+        <div class="card">
+            <h2>Scrape Configuration</h2>
+
+            <label>Target URL</label>
+            <input type="text" id="urlInput" placeholder="https://example.com">
+
+            <label>CSS Selector <span title="Example: h1, .title, #content">(?)</span></label>
+            <input type="text" id="selectorInput" placeholder="h1, .title, #content">
+
+            <div class="example-buttons">
+                <button onclick="setSelector('h1')">Article Titles</button>
+                <button onclick="setSelector('a')">All Links</button>
+                <button onclick="setSelector('p')">Paragraphs</button>
+                <button onclick="setSelector('img')">Images</button>
+            </div>
+
+            <button id="scrapeBtn" class="start-btn" onclick="scrape()">
+                🔍 Start Scraping
+            </button>
+
+            <div class="export-buttons">
+                <button onclick="exportTXT()">📄 Save TXT</button>
+                <button onclick="exportCSV()">📊 Save CSV</button>
+                <button onclick="exportJSON()">🗂 Save JSON</button>
+            </div>
+        </div>
+
+        <!-- RIGHT CARD -->
+        <div class="card-small">
+            <h2>History</h2>
+            <ul id="historyList"></ul>
+        </div>
+
+    </div>
+
+    <!-- RESULTS SECTION -->
+    <div class="results-card">
+        <h2>Results</h2>
+        <div class="output-box" id="output">Scraped data will appear here</div>
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
