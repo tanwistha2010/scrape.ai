@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import * as cheerio from "cheerio"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
 const CORS_PROXIES = [
   "https://api.allorigins.win/raw?url=",
@@ -7,9 +8,60 @@ const CORS_PROXIES = [
   "https://api.codetabs.com/v1/proxy?quest=",
 ]
 
+async function summarizeWithGemini(
+  results: Array<{ selector: string; content: string; tag?: string; href?: string; src?: string }>,
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured")
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey)
+  
+  // Try different model names - start with the most common ones
+  const modelNames = ["gemini-2.0-flash-exp", "gemini-1.5-flash-latest", "gemini-1.5-pro-latest"]
+  let model = genAI.getGenerativeModel({ model: modelNames[0] })
+
+  // Prepare data for Gemini
+  const scrapedData = results
+    .map((r) => r.content)
+    .filter((c) => c.trim().length > 0)
+    .join("\n")
+    .slice(0, 30000) // Limit to avoid token limits
+
+  const prompt = `Summarize the following scraped web data in exactly 20 lines. Be concise and focus on the key information:
+
+${scrapedData}
+
+Provide a clear, structured summary in exactly 20 lines.`
+
+  try {
+    const result = await model.generateContent(prompt)
+    const response = await result.response
+    return response.text()
+  } catch (error) {
+    // Try fallback models if first one fails
+    for (let i = 1; i < modelNames.length; i++) {
+      try {
+        model = genAI.getGenerativeModel({ model: modelNames[i] })
+        const result = await model.generateContent(prompt)
+        const response = await result.response
+        return response.text()
+      } catch (fallbackError) {
+        if (i === modelNames.length - 1) {
+          console.error("Gemini API error:", error)
+          throw new Error(`Failed to process with Gemini: ${error instanceof Error ? error.message : "Unknown error"}`)
+        }
+        continue
+      }
+    }
+    throw error
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { url, selector, useProxy = true } = await request.json()
+    const { url, selector, useProxy = true, useGemini = false } = await request.json()
 
     if (!url || !selector) {
       return NextResponse.json({ error: "URL and selector are required" }, { status: 400 })
@@ -114,7 +166,29 @@ export async function POST(request: NextRequest) {
       })
     })
 
-    return NextResponse.json({ results })
+    // If Gemini is enabled and API key is available, summarize the data
+    let summary: string | null = null
+
+    if (useGemini && process.env.GEMINI_API_KEY) {
+      try {
+        summary = await summarizeWithGemini(results)
+      } catch (error) {
+        console.error("Gemini processing error:", error)
+        // Continue with original results if Gemini fails
+        return NextResponse.json(
+          {
+            results,
+            error: `Gemini processing failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+          { status: 200 }, // Still return results, but with error message
+        )
+      }
+    }
+
+    return NextResponse.json({
+      results,
+      summary,
+    })
   } catch (error) {
     console.error("Scrape error:", error)
     return NextResponse.json(

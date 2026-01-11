@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Globe, Moon, Sun, FileText, FileSpreadsheet, FileJson, Loader2, Trash2, Clock, Shield } from "lucide-react"
+import { Globe, Moon, Sun, FileText, FileSpreadsheet, FileJson, Loader2, Trash2, Clock, Shield, Sparkles } from "lucide-react"
 
 interface ScrapeResult {
   selector: string
@@ -40,6 +40,10 @@ export function WebScraper() {
   const [error, setError] = useState("")
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [useProxy, setUseProxy] = useState(true)
+  const [useGemini, setUseGemini] = useState(false)
+  const [summary, setSummary] = useState<string | null>(null)
+  const [originalCount, setOriginalCount] = useState<number | null>(null)
+  const [filteredCount, setFilteredCount] = useState<number | null>(null)
 
   useEffect(() => {
     if (darkMode) {
@@ -63,7 +67,7 @@ export function WebScraper() {
       const response = await fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, selector, useProxy }),
+        body: JSON.stringify({ url, selector, useProxy, useGemini }),
       })
 
       const data = await response.json()
@@ -72,7 +76,10 @@ export function WebScraper() {
         throw new Error(data.error || "Failed to scrape")
       }
 
-      setResults(data.results)
+      setResults(data.results || [])
+      setSummary(data.summary || null)
+      setOriginalCount(null)
+      setFilteredCount(null)
 
       const historyItem: HistoryItem = {
         id: Date.now().toString(),
@@ -212,6 +219,17 @@ export function WebScraper() {
                 <Switch checked={useProxy} onCheckedChange={setUseProxy} />
               </div>
 
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">AI Summarize</p>
+                    <p className="text-xs text-muted-foreground">Use Gemini AI to summarize scraped data (20 lines)</p>
+                  </div>
+                </div>
+                <Switch checked={useGemini} onCheckedChange={setUseGemini} />
+              </div>
+
               <div className="flex flex-wrap gap-2">
                 {QUICK_SELECTORS.map((qs) => (
                   <Badge
@@ -321,6 +339,16 @@ export function WebScraper() {
           </CardHeader>
           <CardContent>
             {error && <div className="p-4 rounded-lg bg-destructive/10 text-destructive mb-4">{error}</div>}
+
+            {summary && (
+              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium text-foreground">AI Summary (20 lines)</p>
+                </div>
+                <div className="text-sm text-foreground whitespace-pre-line">{summary}</div>
+              </div>
+            )}
 
             {results.length === 0 && !error ? (
               <p className="text-muted-foreground">Scraped data will appear here</p>
